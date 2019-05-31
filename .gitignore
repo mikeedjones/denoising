@@ -1,0 +1,8 @@
+env
+.spyproject
+data
+cache
+__pycache__
+.vscode
+*.swp
+/*.swp

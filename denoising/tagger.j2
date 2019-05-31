@@ -1,0 +1,98 @@
+<!DOCTYPE html5>
+<head> 
+<title>{{category}}/{{number}}</title>
+
+<style>
+.imgareaselect-border1, .imgareaselect-border2,
+.imgareaselect-border3, .imgareaselect-border4 {
+    filter: alpha(opacity=20);
+	opacity: 0.2;
+}
+
+.imgareaselect-handle {
+    background-color: #fff;
+    border: solid 1px #000;
+    filter: alpha(opacity=20);
+    opacity: 0.2;
+}
+
+.imgareaselect-outer {
+    background-color: #000;
+    filter: alpha(opacity=20);
+    opacity: 0.2;
+}
+</style>
+
+<script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/imgareaselect/0.9.10/js/jquery.imgareaselect.min.js"></script>
+
+<script type="text/javascript">
+    // This function gets imgAreaSelect - the external script we're using - to listen to mouse actions on the displayed heatmap.
+    //
+    // The $ signs that show up all over the place here are calls to jQuery, which is an _extremely_ common library for manipulating
+    // HTML from JavaScript.
+    //
+    // The {{category}} syntax is filled in by Jinja when the Python server generates the page.
+    //
+    // The '.heatmap' and '.selected' and the like are called 'CSS selectors'
+    //
+    // The best way to see how this all works is to backup your sqlite.tags file (probably already done by git), open the tagger in
+    // Chrome Dev Tools, and watch what happens with each action to the elements/console/network tabs. You'll probably want to disable
+    // the 'complete:' function at the end of the script to stop the page navigating away when you press enter.
+    $(document).ready(function () {
+        $('.heatmap').imgAreaSelect({
+            handles: false,
+
+            // This executes when you release the mouse button, aka onSelectEnd.
+            onSelectEnd: function (img, selection) {
+                var img = {"width": img.clientWidth, "height": img.clientHeight};
+
+                // To keep track of selections, we're going to clone the HTML elements that imgAreaSelect is using to highlight areas,
+                // and change some of their properties. Then when enter is hit, we can find all the clones and pull out their positions.
+                var cutout = $(".imgareaselect-selection") // Grab the HTML element representing the selection
+                                        .last() // Because of display lag, there might be a few at the same time - we want the latest
+                                        .parent() // And actually we want the parent, but that doesn't have an identifying class like .imgareaselect-selection does
+                                        .clone() 
+                                        .attr("class", "selected") // Change the class of the tag so that imgAreaSelect won't try to delete it when we start the next selection
+                                        .css("background-color", "black")
+                                        .css("opacity", .5)
+                                        .data({...selection, ...img}) // Attach the data we'll submit when you hit enter.
+
+                $(".tagger").append(cutout); // Stick the 'cutout' area in the HTML tree somewhere we can find it later. 
+            }
+        });
+    })
+
+    // This function handles keyboard events.
+    $(document).ready(function () { 
+        $("body").keyup(function(e) {
+            console.log(e.keyCode)
+            if (e.keyCode == 8) {
+                // Backspace event - find the latest tag with the 'selected' class syntax and remove it. 
+                console.log("Removing...")
+                $(".selected").last().remove()
+            } else if (e.keyCode == 13) {
+                // Enter event - gather up all the 'data' attributes hanging off 'selected'-class tags and submit it.
+                console.log("Submitting...")
+                var data = $(".selected").map(function () { return $(this).data();}).toArray();
+                $.ajax({
+                    url: "/selection/{{category}}/{{number}}", 
+                    type: "POST", 
+                    data: JSON.stringify(data), 
+                    contentType: 'application/json',
+                   // And on completion, navigate to the next page.
+                    complete: function (xhr, status) { window.location.href = "/tag/{{category}}"; }});
+            }
+        });
+
+    });
+</script>
+</head>
+
+<body>
+<div class="tagger">
+<h1>{{category}}/{{number}}</h1>
+<img class="heatmap" src="/image/{{category}}/{{number}}"/>
+<p>Drag to highlight spots; enter to submit; backspace to remove latest highlight</p>
+</div>
+</body>
